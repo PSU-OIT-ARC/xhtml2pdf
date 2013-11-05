@@ -629,42 +629,21 @@ def pisaParser(src, context, default_css="", xhtml=False, encoding=None, xml_out
     global CSSAttrCache
     CSSAttrCache = {}
 
-    if xhtml:
-        #TODO: XHTMLParser doesn't see to exist...
-        parser = html5lib.XHTMLParser(tree=treebuilders.getTreeBuilder("dom"))
+    if encoding and inputstream.codecName(encoding) is None:
+        log.error("%r is not a valid encoding", encoding)
+
+    parser_cls = html5lib.XHTMLParser if xhtml else html5lib.HTMLParser
+    parser = parser_cls(tree=treebuilders.getTreeBuilder("dom"))
+    src = pisaTempFile(src, capacity=context.capacity)
+
+    if type(src) != types.UnicodeType:
+        document = parser.parse(src, encoding=encoding)
     else:
-        parser = html5lib.HTMLParser(tree=treebuilders.getTreeBuilder("dom"))
-
-    if type(src) in types.StringTypes:
-        if type(src) is types.UnicodeType:
-            # If an encoding was provided, do not change it.
-            if not encoding:
-                encoding = "utf-8"
-            src = src.encode(encoding)
-        src = pisaTempFile(src, capacity=context.capacity)
-
-    # Test for the restrictions of html5lib
-    if encoding:
-        # Workaround for html5lib<0.11.1
-        if hasattr(inputstream, "isValidEncoding"):
-            if encoding.strip().lower() == "utf8":
-                encoding = "utf-8"
-            if not inputstream.isValidEncoding(encoding):
-                log.error("%r is not a valid encoding e.g. 'utf8' is not valid but 'utf-8' is!", encoding)
-        else:
-            if inputstream.codecName(encoding) is None:
-                log.error("%r is not a valid encoding", encoding)
-    document = parser.parse(
-        src,
-        encoding=encoding)
+        document = parser.parse(src)
+        encoding = 'utf-8'
 
     if xml_output:
-        if encoding:
-            xml_output.write(document.toprettyxml(encoding=encoding))
-        else:
-            xml_output.write(document.toprettyxml(encoding="utf8"))
-
-
+        xml_output.write(document.toprettyxml(encoding="utf8"))
     if default_css:
         context.addDefaultCSS(default_css)
 
