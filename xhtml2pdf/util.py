@@ -419,6 +419,9 @@ class pisaTempFile(object):
         self.capacity = capacity
         self.strategy = int(len(buffer) > self.capacity)
         try:
+            strategy = self.STRATEGIES[self.strategy]
+            if type(buffer) != strategy:
+                self._delegate = strategy()
             self._delegate = self.STRATEGIES[self.strategy]()
         except:
             # Fallback for Google AppEnginge etc.
