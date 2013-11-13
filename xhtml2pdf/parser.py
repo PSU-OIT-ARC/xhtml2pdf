@@ -634,12 +634,12 @@ def pisaParser(src, context, default_css="", xhtml=False, encoding=None, xml_out
 
     parser_cls = html5lib.XHTMLParser if xhtml else html5lib.HTMLParser
     parser = parser_cls(tree=treebuilders.getTreeBuilder("dom"))
-    src = pisaTempFile(src, capacity=context.capacity)
+    input_stream = pisaTempFile(src, capacity=context.capacity)
 
     if type(src) != types.UnicodeType:
-        document = parser.parse(src, encoding=encoding)
+        document = parser.parse(input_stream, encoding=encoding)
     else:
-        document = parser.parse(src)
+        document = parser.parse(input_stream)
         encoding = 'utf-8'
 
     if xml_output:
@@ -648,14 +648,9 @@ def pisaParser(src, context, default_css="", xhtml=False, encoding=None, xml_out
         context.addDefaultCSS(default_css)
 
     pisaPreLoop(document, context)
-    #try:
     context.parseCSS()
-    #except:
-    #    context.cssText = DEFAULT_CSS
-    #    context.parseCSS()
-    # context.debug(9, pprint.pformat(context.css))
-
     pisaLoop(document, context)
+
     return context
 
 
