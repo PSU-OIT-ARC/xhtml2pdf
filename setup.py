@@ -16,12 +16,7 @@ import os
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-try:
-    from setuptools import setup, find_packages
-except ImportError:
-    from ez_setup import use_setuptools
-
-    use_setuptools()
+from setuptools import setup, find_packages
 
 README = open(os.path.join(os.path.dirname(__file__), 'README.rst')).read()
 
@@ -35,7 +30,13 @@ setup(
     maintainer_email="tribaal@gmail.com",
     url="http://www.xhtml2pdf.com",
     keywords="PDF, HTML, XHTML, XML, CSS",
-    install_requires = ["html5lib>=0.99", "PyPDF2>=1.19", "Pillow>=2.2.1", "reportlab>=2.7"],
+    install_requires = [
+        "html5lib>=0.99",
+        "PyPDF2>=1.19",
+        "Pillow>=2.2.1",
+        "reportlab>=2.7",
+        "six>=1.8.0",
+    ],
     include_package_data=True,
     packages=find_packages(exclude=["tests", "tests.*"]),
     #    test_suite = "tests", They're not even working yet
@@ -55,6 +56,8 @@ setup(
         'Intended Audience :: System Administrators',
         'Natural Language :: English',
         'Operating System :: OS Independent',
+        'Programming Language :: Python :: 2',
+        'Programming Language :: Python :: 3',
         'Topic :: Documentation',
         'Topic :: Multimedia',
         'Topic :: Office/Business',
