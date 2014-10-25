@@ -15,7 +15,7 @@ import shutil
 import sys
 import tempfile
 
-from six import binary_type, StringIO
+from six import binary_type, BytesIO, text_type
 from six.moves.http_client import HTTPConnection, HTTPSConnection
 from six.moves.urllib.error import HTTPError
 from six.moves.urllib.parse import urljoin, urlparse, urlsplit
@@ -384,11 +384,11 @@ GAE = "google.appengine" in sys.modules
 
 if GAE:
     STRATEGIES = (
-        StringIO,
-        StringIO)
+        BytesIO,
+        BytesIO)
 else:
     STRATEGIES = (
-        StringIO,
+        BytesIO,
         tempfile.NamedTemporaryFile)
 
 
@@ -426,8 +426,6 @@ class pisaTempFile(object):
         except:
             # Fallback for Google AppEnginge etc.
             self._delegate = self.STRATEGIES[0]()
-        if not isinstance(buffer, binary_type):
-            buffer = buffer.encode('utf-8')
         self.write(buffer)
         # we must set the file's position for preparing to read
         self.seek(0)
@@ -465,20 +463,22 @@ class pisaTempFile(object):
 
     def getvalue(self):
         """
-        Get value of file. Work around for second strategy
+        Get value of file. Work around for second strategy.
+        Always returns bytes.
         """
-
         if self.strategy == 0:
             return self._delegate.getvalue()
         self._delegate.flush()
         self._delegate.seek(0)
-        return self._delegate.read()
+        value = self._delegate.read()
+        if not isinstance(value, binary_type):
+            value = value.encode('utf-8')
+        return value
 
     def write(self, value):
         """
         If capacity != -1 and length of file > capacity it is time to switch
         """
-
         if self.capacity > 0 and self.strategy == 0:
             len_value = len(value)
             if len_value >= self.capacity:
@@ -489,6 +489,8 @@ class pisaTempFile(object):
                     (self.tell() + len_value) >= self.capacity
             if needs_new_strategy:
                 self.makeTempFile()
+        if not isinstance(value, binary_type):
+            value = value.encode('utf-8')
         self._delegate.write(value)
 
     def __getattr__(self, name):

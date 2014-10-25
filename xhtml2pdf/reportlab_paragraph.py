@@ -17,12 +17,17 @@ from copy import deepcopy
 from reportlab.lib.abag import ABag
 import re
 
-from six import string_types, text_type
+from six import binary_type, string_types, text_type
 from six.moves import range
 
 
 PARAGRAPH_DEBUG = False
 LEADING_FACTOR = 1.0
+
+ENCODING = 'utf-8'
+whitespace = whitespace.encode(ENCODING)
+EMPTY_STRING = ''.encode(ENCODING)
+SPACE = ' '.encode(ENCODING)
 
 _wsc_re_split = re.compile('[%s]+' % re.escape(''.join((
     u'\u0009',  # HORIZONTAL TABULATION
@@ -59,19 +64,13 @@ _wsc_re_split = re.compile('[%s]+' % re.escape(''.join((
 
 
 def split(text, delim=None):
-    if type(text) is str:
+    if isinstance(text, binary_type):
         text = text.decode('utf8')
-    if type(delim) is str:
+    if isinstance(delim, binary_type):
         delim = delim.decode('utf8')
     elif delim is None and u'\xa0' in text:
         return [uword.encode('utf8') for uword in _wsc_re_split(text)]
     return [uword.encode('utf8') for uword in text.split(delim)]
-
-
-def strip(text):
-    if type(text) is str:
-        text = text.decode('utf8')
-    return text.strip().encode('utf8')
 
 
 class ParaLines(ABag):
@@ -103,7 +102,7 @@ _parser = ParaParser()
 
 
 def _lineClean(L):
-    return ' '.join(filter(truth, split(strip(L))))
+    return ' '.join(filter(truth, split(L.strip())))
 
 
 def cleanBlockQuotedText(text, joiner=' '):
@@ -282,6 +281,8 @@ def _putFragLine(cur_x, tx, line):
                 xs.rise = f.rise
                 tx.setRise(f.rise)
             text = f.text
+            if not isinstance(text, binary_type):
+                text = text.encode(ENCODING)
             tx._textOut(text, f is words[-1])    # cheap textOut
 
             # XXX Modified for XHTML2PDF
@@ -345,7 +346,7 @@ def _putFragLine(cur_x, tx, line):
                     xs.linkColor = xs.textColor
             txtlen = tx._canvas.stringWidth(text, tx._fontname, tx._fontsize)
             cur_x += txtlen
-            nSpaces += text.count(' ')
+            nSpaces += text.count(SPACE)
     cur_x_s = cur_x + (nSpaces - 1) * ws
 
     # XXX Modified for XHTML2PDF
@@ -428,16 +429,18 @@ def _getFragWords(frags):
     hangingStrip = False
     for f in frags:
         text = f.text
+        if not isinstance(text, binary_type):
+            text = text.encode(ENCODING)
         # of paragraphs
-        if text != '':
+        if text:
             if hangingStrip:
                 hangingStrip = False
                 text = text.lstrip()
 
             S = split(text)
             if S == []:
-                S = ['']
-            if W != [] and text[0] in whitespace:
+                S = [EMPTY_STRING]
+            if W and text and text[0] in whitespace:
                 W.insert(0, n)
                 R.append(W)
                 W = []
@@ -467,9 +470,9 @@ def _getFragWords(frags):
                     R.append(W)
                     W = []
                     n = 0
-                R.append([w, (f, '')])
+                R.append([w, (f, EMPTY_STRING)])
             else:
-                W.append((f, ''))
+                W.append((f, EMPTY_STRING))
         elif hasattr(f, 'lineBreak'):
             #pass the frag through.  The line breaker will scan for it.
             if W != []:
@@ -477,7 +480,7 @@ def _getFragWords(frags):
                 R.append(W)
                 W = []
                 n = 0
-            R.append([0, (f, '')])
+            R.append([0, (f, EMPTY_STRING)])
             hangingStrip = True
 
     if W != []:
@@ -511,9 +514,9 @@ def _split_blParaHard(blPara, start, stop):
             if i >= 0:
                 g = f[i]
                 if not g.text:
-                    g.text = ' '
-                elif g.text[-1] != ' ':
-                    g.text += ' '
+                    g.text = SPACE
+                elif g.text[-1] != SPACE:
+                    g.text += SPACE
     return f
 
 
@@ -646,8 +649,8 @@ _scheme_re = re.compile('^[a-zA-Z][-+a-zA-Z0-9]+$')
 
 
 def _doLink(tx, link, rect):
-    if isinstance(link, text_type):
-        link = link.encode('utf8')
+    if isinstance(link, binary_type):
+        link = link.decode(ENCODING)
     parts = link.split(':', 1)
     scheme = len(parts) == 2 and parts[0].lower() or ''
     if _scheme_re.match(scheme) and scheme != 'document':
@@ -1273,7 +1276,7 @@ class Paragraph(Flowable):
                         words = [g]
                         g.text = nText
                     elif not _sameFrag(g, f):
-                        if currentWidth > 0 and ((nText != '' and nText[0] != ' ') or hasattr(f, 'cbDefn')):
+                        if currentWidth > 0 and ((nText and nText[0] != SPACE) or hasattr(f, 'cbDefn')):
                             if hasattr(g, 'cbDefn'):
                                 i = len(words) - 1
                                 while i >= 0:
@@ -1283,18 +1286,18 @@ class Paragraph(Flowable):
                                         if not getattr(cbDefn, 'width', 0):
                                             i -= 1
                                             continue
-                                    if not wi.text.endswith(' '):
-                                        wi.text += ' '
+                                    if not wi.text.endswith(SPACE):
+                                        wi.text += SPACE
                                     break
                             else:
-                                if not g.text.endswith(' '):
-                                    g.text += ' '
+                                if not g.text.endswith(SPACE):
+                                    g.text += SPACE
                         g = f.clone()
                         words.append(g)
                         g.text = nText
                     else:
-                        if nText != '' and nText[0] != ' ':
-                            g.text += ' ' + nText
+                        if nText and nText[0] != SPACE:
+                            g.text = SPACE.join((g.text, nText))
 
                     for i in w[2:]:
                         g = i[0].clone()
