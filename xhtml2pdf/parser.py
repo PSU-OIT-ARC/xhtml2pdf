@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import print_function
 
 from html5lib import treebuilders, inputstream
 from xhtml2pdf.default import TAGS, STRING, INT, BOOL, SIZE, COLOR, FILE
@@ -31,10 +30,9 @@ import copy
 import html5lib
 import logging
 import re
+import types
 import xhtml2pdf.w3c.cssDOMElementInterface as cssDOMElementInterface
 import xml.dom.minidom
-
-from six import text_type
 
 
 CSSAttrCache = {}
@@ -67,12 +65,12 @@ def pisaGetAttributes(c, tag, attributes):
     if tag in TAGS:
         block, adef = TAGS[tag]
         adef["id"] = STRING
-        # print(block, adef)
-        for k, v in adef.items():
+        # print block, adef
+        for k, v in adef.iteritems():
             nattrs[k] = None
-            # print(k, v)
+            # print k, v
             # defaults, wenn vorhanden
-            if isinstance(v, tuple):
+            if type(v) == types.TupleType:
                 if v[1] == MUST:
                     if k not in attrs:
                         log.warn(c.warning("Attribute '%s' must be set!", k))
@@ -86,7 +84,7 @@ def pisaGetAttributes(c, tag, attributes):
                 dfl = None
 
             if nv is not None:
-                if isinstance(v, list):
+                if type(v) == types.ListType:
                     nv = nv.strip().lower()
                     if nv not in v:
                         #~ raise PML_EXCEPTION, "attribute '%s' of wrong value, allowed is one of: %s" % (k, repr(v))
@@ -278,7 +276,7 @@ def CSS2Frag(c, kw, isBlock):
         c.frag.letterSpacing = c.cssAttr["letter-spacing"]
     if "-pdf-line-spacing" in c.cssAttr:
         c.frag.leadingSpace = getSize("".join(c.cssAttr["-pdf-line-spacing"]))
-        # print("line-spacing", c.cssAttr["-pdf-line-spacing"], c.frag.leading)
+        # print "line-spacing", c.cssAttr["-pdf-line-spacing"], c.frag.leading
     if "font-weight" in c.cssAttr:
         value = c.cssAttr["font-weight"].lower()
         if value in ("bold", "bolder", "500", "600", "700", "800", "900"):
@@ -405,7 +403,7 @@ def pisaPreLoop(node, context, collect=False):
                     return u""
 
                 if name == "link" and attr.href and attr.rel.lower() == "stylesheet":
-                    # print("CSS LINK", attr)
+                    # print "CSS LINK", attr
                     context.addCSS('\n@import "%s" %s;' % (attr.href, ",".join(media)))
 
     for node in node.childNodes:
@@ -436,7 +434,7 @@ def pisaLoop(node, context, path=None, **kw):
 
     # TEXT
     if node.nodeType == Node.TEXT_NODE:
-        # print(indent, "#", repr(node.data) #, context.frag)
+        # print indent, "#", repr(node.data) #, context.frag
         context.addFrag(node.data)
 
         # context.text.append(node.value)
@@ -467,7 +465,7 @@ def pisaLoop(node, context, path=None, **kw):
         pageBreakAfter = False
         frameBreakAfter = False
         display = context.cssAttr.get("display", "inline").lower()
-        # print(indent, node.tagName, display, context.cssAttr.get("background-color", None), attr)
+        # print indent, node.tagName, display, context.cssAttr.get("background-color", None), attr
         isBlock = (display == "block")
 
         if isBlock:
@@ -502,7 +500,7 @@ def pisaLoop(node, context, path=None, **kw):
                     pageBreakAfter = PAGE_BREAK_LEFT
 
         if display == "none":
-            # print("none!")
+            # print "none!"
             return
 
         # Translate CSS to frags
@@ -638,7 +636,7 @@ def pisaParser(src, context, default_css="", xhtml=False, encoding=None, xml_out
     parser = parser_cls(tree=treebuilders.getTreeBuilder("dom"))
     input_stream = pisaTempFile(src, capacity=context.capacity)
 
-    if isinstance(src, text_type):
+    if type(src) != types.UnicodeType:
         document = parser.parse(input_stream, encoding=encoding)
     else:
         document = parser.parse(input_stream)

@@ -13,7 +13,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-from __future__ import print_function
 
 __version__ = "$Revision: 194 $"
 __author__  = "$Author: holtwick $"
@@ -22,10 +21,8 @@ __date__    = "$Date: 2008-04-18 18:59:53 +0200 (Fr, 18 Apr 2008) $"
 import os
 import sys
 import cgi
+import cStringIO
 import logging
-
-from six import StringIO
-from six.moves.urllib.request import urlopen
 
 import xhtml2pdf.pisa as pisa
 
@@ -35,11 +32,11 @@ pisa.showLogging()
 def dumpErrors(pdf, showLog=True):
     #if showLog and pdf.log:
     #    for mode, line, msg, code in pdf.log:
-    #        print("%s in line %d: %s" % (mode, line, msg))
+    #        print "%s in line %d: %s" % (mode, line, msg)
     #if pdf.warn:
-    #    print("*** %d WARNINGS OCCURED" % pdf.warn)
+    #    print "*** %d WARNINGS OCCURED" % pdf.warn
     if pdf.err:
-        print("*** %d ERRORS OCCURED" % pdf.err)
+        print "*** %d ERRORS OCCURED" % pdf.err
 
 def testSimple(
     data="""Hello <b>World</b><br/><img src="img/test.jpg"/>""",
@@ -52,8 +49,8 @@ def testSimple(
     """
 
     pdf = pisa.CreatePDF(
-        StringIO(data),
-        open(dest, "wb")
+        cStringIO.StringIO(data),
+        file(dest, "wb")
         )
 
     if pdf.err:
@@ -68,18 +65,20 @@ def testCGI(data="Hello <b>World</b>"):
     file object and then send it to STDOUT
     """
 
-    result = StringIO()
+    result = cStringIO.StringIO()
 
     pdf = pisa.CreatePDF(
-        StringIO(data),
+        cStringIO.StringIO(data),
         result
         )
 
     if pdf.err:
-        print("Content-Type: text/plain\n")
+        print "Content-Type: text/plain"
+        print
         dumpErrors(pdf)
     else:
-        print("Content-Type: application/octet-stream\n")
+        print "Content-Type: application/octet-stream"
+        print
         sys.stdout.write(result.getvalue())
 
 def testBackgroundAndImage(
@@ -93,8 +92,8 @@ def testBackgroundAndImage(
     """
 
     pdf = pisa.CreatePDF(
-        open(src, "r"),
-        open(dest, "wb"),
+        file(src, "r"),
+        file(dest, "wb"),
         log_warn = 1,
         log_err = 1,
         path = os.path.join(os.getcwd(), src)
@@ -116,9 +115,11 @@ def testURL(
     the Reportlab Toolkit needs real filenames for images and stuff. Then
     we also pass the url as 'path' for relative path calculations.
     """
+    import urllib
+
     pdf = pisa.CreatePDF(
-        urlopen(url),
-        open(dest, "wb"),
+        urllib.urlopen(url),
+        file(dest, "wb"),
         log_warn = 1,
         log_err = 1,
         path = url,

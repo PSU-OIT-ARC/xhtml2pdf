@@ -33,14 +33,11 @@ TODO
 - Sub and super
 
 """
-from __future__ import print_function
 
 from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus.flowables import Flowable
 from reportlab.lib.colors import Color
-
-from six import binary_type
 
 
 WORD = 1
@@ -212,7 +209,7 @@ class BoxBegin(Fragment):
         self["width"] = self.get("marginLeft", 0) + self.get("paddingLeft", 0) # + border if border
 
     def drawBefore(self, canvas, y):
-        # print(repr(self))
+        # print repr(self)
         x = self.get("marginLeft", 0) + self["x"]
         w = self["length"] + self.get("paddingRight", 0)
         h = self["fontSize"]
@@ -347,10 +344,10 @@ class Line(list):
         return self.height
 
     def dumpFragments(self):
-        print("Line", 40 * "-")
+        print "Line", 40 * "-"
         for frag in self:
-            print("%s" % frag.get("text", frag.name.upper()),)
-        print()
+            print "%s" % frag.get("text", frag.name.upper()),
+        print
 
 
 class Group(list):
@@ -512,7 +509,7 @@ class Text(list):
         For debugging dump all line and their content
         """
         for i, line in enumerate(self.lines):
-            print("Line %d:" % i,)
+            print "Line %d:" % i,
             line.dumpFragments()
 
 
@@ -542,7 +539,7 @@ class Paragraph(Flowable):
         self.splitted = splitted
 
         # More attributes
-        for k, v in kwDict.items():
+        for k, v in kwDict.iteritems():
             setattr(self, k, v)
 
         # set later...
@@ -559,11 +556,11 @@ class Paragraph(Flowable):
         self.avHeight = availHeight
 
         if self.debug:
-            print("*** wrap (%f, %f)" % (availWidth, availHeight))
+            print "*** wrap (%f, %f)" % (availWidth, availHeight)
 
         if not self.text:
             if self.debug:
-                print("*** wrap (%f, %f) needed" % (0, 0))
+                print "*** wrap (%f, %f) needed" % (0, 0)
             return 0, 0
 
         # Split lines
@@ -573,7 +570,7 @@ class Paragraph(Flowable):
         self.width, self.height = availWidth, self.text.height
 
         if self.debug:
-            print("*** wrap (%f, %f) needed, splitIndex %r" % (self.width, self.height, self.splitIndex))
+            print "*** wrap (%f, %f) needed, splitIndex %r" % (self.width, self.height, self.splitIndex)
 
         return self.width, self.height
 
@@ -583,7 +580,7 @@ class Paragraph(Flowable):
         """
 
         if self.debug:
-            print("*** split (%f, %f)" % (availWidth, availHeight))
+            print "*** split (%f, %f)" % (availWidth, availHeight)
 
         splitted = []
         if self.splitIndex:
@@ -594,10 +591,10 @@ class Paragraph(Flowable):
             splitted = [p1, p2]
 
             if self.debug:
-                print("*** text1 %s / text %s" % (len(text1), len(text2)))
+                print "*** text1 %s / text %s" % (len(text1), len(text2))
 
         if self.debug:
-            print('*** return %s' % self.splitted)
+            print '*** return %s' % self.splitted
 
         return splitted
 
@@ -607,7 +604,7 @@ class Paragraph(Flowable):
         """
 
         if self.debug:
-            print("*** draw")
+            print "*** draw"
 
         if not self.text:
             return
@@ -661,7 +658,7 @@ class Paragraph(Flowable):
                     _scheme_re = re.compile('^[a-zA-Z][-+a-zA-Z0-9]+$')
                     x, y, w, h = frag["x"], dy - y, frag["width"], frag["fontSize"]
                     rect = (x, y, w, h)
-                    if not isinstance(link, binary_type):
+                    if isinstance(link, unicode):
                         link = link.encode('utf8')
                     parts = link.split(':', 1)
                     scheme = len(parts) == 2 and parts[0].lower() or ''
@@ -928,13 +925,13 @@ if __name__ == "__main__":
         # text = Text(list(textGenerator(TEXT, "Times-Roman", 10)))
         text = Text(makeSpecial())
         text.calc()
-        print(text[1].type)
+        print text[1].type
         while 1:
             width, br, group = text.getGroup()
             if not group:
-                print("ENDE", repr(group))
+                print "ENDE", repr(group)
                 break
-            print(width, br, " ".join([str(x) for x in group]))
+            print width, br, " ".join([str(x) for x in group])
 
     # test2()
     if 1:  # FIXME: Again, why this? And the commented lines around here.

@@ -1,25 +1,23 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-
 from reportlab.lib.colors import Color, CMYKColor, getAllNamedColors, toColor, \
     HexColor
 from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.lib.units import inch, cm
 import base64
+import httplib
 import logging
 import mimetypes
 import os.path
 import re
 import reportlab
 import shutil
+import string
 import sys
 import tempfile
-
-from six import binary_type, BytesIO, text_type
-from six.moves.http_client import HTTPConnection, HTTPSConnection
-from six.moves.urllib.error import HTTPError
-from six.moves.urllib.parse import urljoin, urlparse, urlsplit
-from six.moves.urllib.request import urlopen
+import types
+import urllib
+import urllib2
+import urlparse
 
 # Copyright 2010 Dirk Holtwick, holtwick.it
 #
@@ -37,16 +35,18 @@ from six.moves.urllib.request import urlopen
 
 rgb_re = re.compile("^.*?rgb[(]([0-9]+).*?([0-9]+).*?([0-9]+)[)].*?[ ]*$")
 
-reportlab_version = [int(p) for p in reportlab.Version.split('.')[:2]]
-min_reportlab_version = [2, 1]
+if not (reportlab.Version[0] == "2" and reportlab.Version[2] >= "1"):
+    raise ImportError("Reportlab Version 2.1+ is needed!")
 
-if not reportlab_version >= min_reportlab_version:
-    raise ImportError("Reportlab Version %s.%s+ is needed!" % min_reportlab_version)
-
-REPORTLAB22 = reportlab_version >= min_reportlab_version
-# print("***", reportlab.Version, REPORTLAB22, reportlab.__file__)
+REPORTLAB22 = (reportlab.Version[0] == "2" and reportlab.Version[2] >= "2")
+# print "***", reportlab.Version, REPORTLAB22, reportlab.__file__
 
 log = logging.getLogger("xhtml2pdf")
+
+try:
+    import cStringIO as StringIO
+except:
+    import StringIO
 
 try:
     import pyPdf
@@ -91,7 +91,7 @@ class memoized(object):
     def __call__(self, *args, **kwargs):
         # Make sure the following line is not actually slower than what you're
         # trying to memoize
-        args_plus = tuple(kwargs.items())
+        args_plus = tuple(kwargs.iteritems())
         key = (args, args_plus)
         try:
             if key not in self.cache:
@@ -114,12 +114,12 @@ def ErrorMsg():
     type, value, tb = sys.exc_info()
     list = traceback.format_tb(tb, limit) + traceback.format_exception_only(type, value)
     return "Traceback (innermost last):\n" + "%-20s %s" % (
-        ''.join(list[: - 1]),
+        string.join(list[: - 1], ""),
         list[- 1])
 
 
 def toList(value):
-    if not isinstance(value, (tuple, list)):
+    if type(value) not in (types.ListType, types.TupleType):
         return [value]
     return list(value)
 
@@ -210,11 +210,11 @@ def getSize(value, relative=0, base=None, default=0.0):
         original = value
         if value is None:
             return relative
-        elif isinstance(value, float):
+        elif type(value) is types.FloatType:
             return value
         elif isinstance(value, int):
             return float(value)
-        elif isinstance(value, (list, tuple)):
+        elif type(value) in (types.TupleType, types.ListType):
             value = "".join(value)
         value = str(value).strip().lower().replace(",", ".")
         if value[-2:] == 'cm':
@@ -273,7 +273,7 @@ def getCoords(x, y, w, h, pagesize):
     corner of the document as the 0,0 coords therefore
     we need to do some fancy calculations
     """
-    #~ print(pagesize)
+    #~ print pagesize
     ax, ay = pagesize
     if x < 0:
         x = ax + x
@@ -298,7 +298,7 @@ def getBox(box, pagesize):
     """
     box = str(box).split()
     if len(box) != 4:
-        raise Exception("box not defined right way")
+        raise Exception, "box not defined right way"
     x, y, w, h = [getSize(pos) for pos in box]
     return getCoords(x, y, w, h, pagesize)
 
@@ -348,7 +348,7 @@ def getPos(position, pagesize):
     """
     position = str(position).split()
     if len(position) != 2:
-        raise Exception("position not defined right way")
+        raise Exception, "position not defined right way"
     x, y = [getSize(pos) for pos in position]
     return getCoords(x, y, None, None, pagesize)
 
@@ -384,11 +384,11 @@ GAE = "google.appengine" in sys.modules
 
 if GAE:
     STRATEGIES = (
-        BytesIO,
-        BytesIO)
+        StringIO.StringIO,
+        StringIO.StringIO)
 else:
     STRATEGIES = (
-        BytesIO,
+        StringIO.StringIO,
         tempfile.NamedTemporaryFile)
 
 
@@ -463,22 +463,20 @@ class pisaTempFile(object):
 
     def getvalue(self):
         """
-        Get value of file. Work around for second strategy.
-        Always returns bytes.
+        Get value of file. Work around for second strategy
         """
+
         if self.strategy == 0:
             return self._delegate.getvalue()
         self._delegate.flush()
         self._delegate.seek(0)
-        value = self._delegate.read()
-        if not isinstance(value, binary_type):
-            value = value.encode('utf-8')
-        return value
+        return self._delegate.read()
 
     def write(self, value):
         """
         If capacity != -1 and length of file > capacity it is time to switch
         """
+
         if self.capacity > 0 and self.strategy == 0:
             len_value = len(value)
             if len_value >= self.capacity:
@@ -489,8 +487,6 @@ class pisaTempFile(object):
                     (self.tell() + len_value) >= self.capacity
             if needs_new_strategy:
                 self.makeTempFile()
-        if not isinstance(value, binary_type):
-            value = value.encode('utf-8')
         self._delegate.write(value)
 
     def __getattr__(self, name):
@@ -530,17 +526,17 @@ class pisaFileObject:
 
         else:
             # Check if we have an external scheme
-            if basepath and not urlparse(uri).scheme:
-                urlParts = urlparse(basepath)
+            if basepath and not urlparse.urlparse(uri).scheme:
+                urlParts = urlparse.urlparse(basepath)
             else:
-                urlParts = urlparse(uri)
+                urlParts = urlparse.urlparse(uri)
 
             log.debug("URLParts: %r", urlParts)
 
             if urlParts.scheme == 'file':
                 if basepath and uri.startswith('/'):
-                    uri = urljoin(basepath, uri[1:])
-                urlResponse = urlopen(uri)
+                    uri = urlparse.urljoin(basepath, uri[1:])
+                urlResponse = urllib2.urlopen(uri)
                 self.mimetype = urlResponse.info().get("Content-Type", '').split(";")[0]
                 self.uri = urlResponse.geturl()
                 self.file = urlResponse
@@ -550,18 +546,17 @@ class pisaFileObject:
 
                 # External data
                 if basepath:
-                    uri = urljoin(basepath, uri)
+                    uri = urlparse.urljoin(basepath, uri)
 
-                #path = urlsplit(url)[2]
+                #path = urlparse.urlsplit(url)[2]
                 #mimetype = getMimeType(path)
 
                 # Using HTTPLIB
-                parts = urlsplit(uri[uri.find("//"):])
-                server, path = parts.netloc, parts.path
+                server, path = urllib.splithost(uri[uri.find("//"):])
                 if uri.startswith("https://"):
-                    conn = HTTPSConnection(server)
+                    conn = httplib.HTTPSConnection(server)
                 else:
-                    conn = HTTPConnection(server)
+                    conn = httplib.HTTPConnection(server)
                 conn.request("GET", path)
                 r1 = conn.getresponse()
                 # log.debug("HTTP %r %r %r %r", server, path, uri, r1)
@@ -570,13 +565,18 @@ class pisaFileObject:
                     self.uri = uri
                     if r1.getheader("content-encoding") == "gzip":
                         import gzip
-                        self.file = gzip.GzipFile(mode="rb", fileobj=StringIO(r1.read()))
+                        try:
+                            import cStringIO as StringIO
+                        except:
+                            import StringIO
+
+                        self.file = gzip.GzipFile(mode="rb", fileobj=StringIO.StringIO(r1.read()))
                     else:
                         self.file = r1
                 else:
                     try:
-                        urlResponse = urlopen(uri)
-                    except HTTPError:
+                        urlResponse = urllib2.urlopen(uri)
+                    except urllib2.HTTPError:
                         return
                     self.mimetype = urlResponse.info().get("Content-Type", '').split(";")[0]
                     self.uri = urlResponse.geturl()

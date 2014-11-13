@@ -1,6 +1,4 @@
 # -*- coding: utf-8 -*-
-from __future__ import print_function
-
 from reportlab.lib.enums import TA_LEFT
 from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import landscape, A4
@@ -19,12 +17,10 @@ import logging
 import os
 import re
 import reportlab
+import types
+import urlparse
 import xhtml2pdf.default
 import xhtml2pdf.parser
-
-from six import string_types
-from six.moves import range
-from six.moves.urllib.parse import urljoin, urlparse
 
 # Copyright 2010 Dirk Holtwick, holtwick.it
 #
@@ -146,7 +142,7 @@ def getParaFrag(style):
 
 
 def getDirName(path):
-    parts = urlparse(path)
+    parts = urlparse.urlparse(path)
     if parts.scheme:
         return path
     else:
@@ -159,7 +155,7 @@ class pisaCSSBuilder(css.CSSBuilder):
         Embed fonts
         """
         result = self.ruleset([self.selector('*')], declarations)
-        data = list(result[0].values())[0]
+        data = result[0].values()[0]
         if "src" not in data:
             # invalid - source is required, ignore this specification
             return {}, {}
@@ -168,7 +164,7 @@ class pisaCSSBuilder(css.CSSBuilder):
         # Font weight
         fweight = str(data.get("font-weight", "normal")).lower()
         bold = fweight in ("bold", "bolder", "500", "600", "700", "800", "900")
-        if not bold and fweight != "normal":
+        if not bold and fweight <> "normal":
             log.warn(self.c.warning("@fontface, unknown value font-weight '%s'", fweight))
 
         # Font style
@@ -187,7 +183,7 @@ class pisaCSSBuilder(css.CSSBuilder):
         if not name:
             name = "-pdf-frame-%d" % c.UID()
         x, y, w, h = getFrameDimensions(data, size[0], size[1])
-        # print(name, x, y, w, h)
+        # print name, x, y, w, h
         #if not (w and h):
         #    return None
         if first:
@@ -220,7 +216,7 @@ class pisaCSSBuilder(css.CSSBuilder):
             result = self.ruleset([self.selector('*')], declarations)
 
             if declarations:
-                data = list(result[0].values())[0]
+                data = result[0].values()[0]
                 pageBorder = data.get("-pdf-frame-border", None)
 
         if name in c.templateList:
@@ -232,12 +228,12 @@ class pisaCSSBuilder(css.CSSBuilder):
         isLandscape = False
         if "size" in data:
             size = data["size"]
-            if not isinstance(size, list):
+            if type(size) is not types.ListType:
                 size = [size]
             sizeList = []
             for value in size:
                 valueStr = str(value).lower()
-                if isinstance(value, tuple):
+                if type(value) is types.TupleType:
                     sizeList.append(getSize(value))
                 elif valueStr == "landscape":
                     isLandscape = True
@@ -356,11 +352,11 @@ class pisaCSSBuilder(css.CSSBuilder):
     def atFrame(self, name, declarations):
         if declarations:
             result = self.ruleset([self.selector('*')], declarations)
-            # print("@BOX", name, declarations, result)
+            # print "@BOX", name, declarations, result
 
             data = result[0]
             if data:
-                data = list(data.values())[0]
+                data = data.values()[0]
                 self.c.frameList.append(
                     self._pisaAddFrame(name, data, size=self.c.pageSize))
 
@@ -374,8 +370,8 @@ class pisaCSSParser(css.CSSParser):
         cssFile = self.c.getFile(cssResourceName, relative=self.rootPath)
         if not cssFile:
             return None
-        if self.rootPath and urlparse(self.rootPath).scheme:
-            self.rootPath = urljoin(self.rootPath, cssResourceName)
+        if self.rootPath and urlparse.urlparse(self.rootPath).scheme:
+            self.rootPath = urlparse.urljoin(self.rootPath, cssResourceName)
         else:
             self.rootPath = getDirName(cssFile.uri)
 
@@ -444,7 +440,7 @@ class pisaContext(object):
 
         # Store path to document
         self.pathDocument = path or "__dummy__"
-        parts = urlparse(self.pathDocument)
+        parts = urlparse.urlparse(self.pathDocument)
         if not parts.scheme:
             self.pathDocument = os.path.abspath(self.pathDocument)
         self.pathDirectory = getDirName(self.pathDocument)
@@ -558,7 +554,7 @@ class pisaContext(object):
 
     def addTOC(self):
         styles = []
-        for i in range(20):
+        for i in xrange(20):
             self.node.attributes["class"] = "pdftoclevel%d" % i
             self.cssAttr = xhtml2pdf.parser.CSSCollect(self.node, self)
             xhtml2pdf.parser.CSS2Frag(self, {
@@ -817,13 +813,13 @@ class pisaContext(object):
         """
         Name of a font
         """
-        # print(names, self.fontList)
-        if not isinstance(names, list):
-            if not isinstance(names, string_types):
+        # print names, self.fontList
+        if type(names) is not types.ListType:
+            if type(names) not in types.StringTypes:
                 names = str(names)
             names = names.strip().split(",")
         for name in names:
-            if not isinstance(name, string_types):
+            if type(name) not in types.StringTypes:
                 name = str(name)
             font = self.fontList.get(name.strip().lower(), None)
             if font is not None:
@@ -833,7 +829,7 @@ class pisaContext(object):
     def registerFont(self, fontname, alias=[]):
         self.fontList[str(fontname).lower()] = str(fontname)
         for a in alias:
-            if not isinstance(fontname, string_types):
+            if type(fontname) not in types.StringTypes:
                 fontname = str(fontname)
             self.fontList[str(a)] = fontname
 
@@ -847,7 +843,7 @@ class pisaContext(object):
 
             log.debug("Load font %r", src)
 
-            if isinstance(names, list):
+            if type(names) is types.ListType:
                 fontAlias = names
             else:
                 fontAlias = (x.lower().strip() for x in names.split(",") if x)
@@ -906,7 +902,7 @@ class pisaContext(object):
                     face = pdfmetrics.EmbeddedType1Face(afm, pfb)
                     fontNameOriginal = face.name
                     pdfmetrics.registerTypeFace(face)
-                    # print(fontName, fontNameOriginal, fullFontName)
+                    # print fontName, fontNameOriginal, fullFontName
                     justFont = pdfmetrics.Font(fullFontName, fontNameOriginal, encoding)
                     pdfmetrics.registerFont(justFont)
 

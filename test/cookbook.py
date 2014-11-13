@@ -25,13 +25,12 @@ Most people know how to write a page with HTML and CSS. Why not using these skil
 """
 
 from xhtml2pdf import pisa
-
-from six import StringIO
+import cStringIO as StringIO
 
 # Shortcut for dumping all logs to the screen
 pisa.showLogging()
 
-def HTML2PDF(data, filename, open_file=False):
+def HTML2PDF(data, filename, open=False):
 
     """
     Simple test showing how to create a PDF file from
@@ -40,10 +39,10 @@ def HTML2PDF(data, filename, open_file=False):
     """
 
     pdf = pisa.CreatePDF(
-        StringIO(data),
-        open(filename, "wb"))
+        StringIO.StringIO(data),
+        file(filename, "wb"))
 
-    if open_file and (not pdf.err):
+    if open and (not pdf.err):
         pisa.startViewer(filename)
 
     return not pdf.err
@@ -72,4 +71,4 @@ if __name__=="__main__":
     </body></html>
     """
 
-    HTML2PDF(HTMLTEST, "test.pdf")
+    HTML2PDF(HTMLTEST, "test.pdf", open=False)
